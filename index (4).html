@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>家庭行程</title>
+<style>
+:root {
+  --bg: #f2f4f8;
+  --surface: #ffffff;
+  --border: #e8eaf0;
+  --text: #1a1d27;
+  --sub: #7a7f94;
+  --c0: #5b6ef5;
+  --c0bg: #eef0fe;
+  --c1: #e0752a;
+  --c1bg: #fdf0e6;
+  --c2: #2aaa6e;
+  --c2bg: #e6f7f0;
+  --radius: 14px;
+  --nav-h: 60px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; background: var(--bg); font-family: -apple-system, 'Noto Sans SC', sans-serif; color: var(--text); overflow: hidden; }
+
+#app { display: flex; flex-direction: column; height: 100%; max-width: 420px; margin: 0 auto; position: relative; background: var(--bg); }
+
+#topbar {
+  padding: 14px 18px 0;
+  background: var(--bg);
+  flex-shrink: 0;
+}
+.topbar-row { display: flex; align-items: center; justify-content: space-between; }
+#greeting { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+#dateLabel { font-size: 13px; color: var(--sub); margin-top: 2px; }
+.icon-btn {
+  width: 38px; height: 38px;
+  border-radius: 50%; border: none;
+  background: var(--surface);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+#viewToggle {
+  display: flex; gap: 6px;
+  padding: 12px 18px 0;
+  flex-shrink: 0;
+}
+.vtab {
+  flex: 1; padding: 7px; border: none;
+  background: var(--surface); color: var(--sub);
+  border-radius: 10px; font-size: 13px; font-weight: 600;
+  cursor: pointer; font-family: inherit;
+  transition: all .15s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.vtab.on { background: var(--text); color: #fff; }
+
+#scrollArea { flex: 1; overflow-y: auto; padding: 12px 18px calc(var(--nav-h) + 16px); }
+#scrollArea::-webkit-scrollbar { display: none; }
+
+#dateStrip {
+  display: flex; gap: 4px; overflow-x: auto; padding-bottom: 2px; margin-bottom: 14px;
+}
+#dateStrip::-webkit-scrollbar { display: none; }
+.ds-day {
+  display: flex; flex-direction: column; align-items: center;
+  min-width: 44px; padding: 8px 6px; border-radius: 12px;
+  cursor: pointer; transition: all .15s; flex-shrink: 0;
+  border: none; background: var(--surface); font-family: inherit;
+}
+.ds-day .dow { font-size: 10px; color: var(--sub); font-weight: 600; }
+.ds-day .dom { font-size: 16px; font-weight: 700; margin-top: 2px; }
+.ds-day .dot { width: 4px; height: 4px; border-radius: 50%; background: transparent; margin-top: 4px; }
+.ds-day.has-data .dot { background: var(--sub); }
+.ds-day.today .dom { color: var(--c0); }
+.ds-day.selected { background: var(--text); }
+.ds-day.selected .dow { color: rgba(255,255,255,0.6); }
+.ds-day.selected .dom { color: #fff; }
+.ds-day.selected .dot { background: rgba(255,255,255,0.5); }
+
+.member-card {
+  background: var(--surface); border-radius: var(--radius);
+  margin-bottom: 12px; overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.mc-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.mc-avatar {
+  width: 36px; height: 36px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+}
+.mc-name { font-size: 15px; font-weight: 700; }
+.mc-role { font-size: 11px; color: var(--sub); margin-top: 1px; }
+.mc-done-badge {
+  margin-left: auto; font-size: 11px; font-weight: 700;
+  padding: 3px 10px; border-radius: 20px;
+}
+
+.task-list { padding: 6px 0; }
+.task-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px; transition: background .1s;
+}
+.task-row:active { background: var(--bg); }
+.chk {
+  width: 20px; height: 20px; border-radius: 6px; flex-shrink: 0;
+  border: 2px solid var(--border); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s; background: #fff;
+}
+.chk.done-0 { border-color: var(--c0); }
+.chk.done-1 { border-color: var(--c1); }
+.chk.done-2 { border-color: var(--c2); }
+.chk.ticked-0 { background: var(--c0); border-color: var(--c0); }
+.chk.ticked-1 { background: var(--c1); border-color: var(--c1); }
+.chk.ticked-2 { background: var(--c2); border-color: var(--c2); }
+.chk svg { display: none; }
+.chk.ticked-0 svg, .chk.ticked-1 svg, .chk.ticked-2 svg { display: block; }
+
+.task-body { flex: 1; min-width: 0; }
+.task-txt { font-size: 14px; font-weight: 500; }
+.task-txt.struck { text-decoration: line-through; color: var(--sub); }
+.task-time { font-size: 11px; color: var(--sub); margin-top: 1px; }
+
+.del-btn { font-size: 16px; color: var(--border); border: none; background: none; cursor: pointer; padding: 0 2px; }
+.del-btn:hover { color: #e05050; }
+
+.add-task-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px 12px;
+}
+.add-task-input {
+  flex: 1; background: var(--bg); border: none; outline: none;
+  border-radius: 8px; padding: 7px 10px; font-size: 13px;
+  color: var(--text); font-family: inherit;
+}
+.add-task-input::placeholder { color: var(--sub); }
+.add-time-inp {
+  width: 54px; background: var(--bg); border: none; outline: none;
+  border-radius: 8px; padding: 7px 6px; font-size: 12px;
+  color: var(--sub); font-family: inherit; text-align: center;
+}
+.add-time-inp::placeholder { color: #c0c4d4; font-size: 11px; }
+.add-go {
+  width: 28px; height: 28px; border-radius: 8px; border: none;
+  background: var(--text); color: #fff; font-size: 16px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.empty-hint { text-align: center; padding: 18px 0 10px; color: var(--sub); font-size: 13px; }
+
+#calView { display: none; }
+#calView.on { display: block; }
+#todayView { display: block; }
+#todayView.off { display: none; }
+
+.month-block { margin-bottom: 24px; }
+.month-title {
+  font-size: 16px; font-weight: 700; margin-bottom: 10px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.month-title span { font-size: 12px; color: var(--sub); font-weight: 500; }
+
+.cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; }
+.cal-dow {
+  text-align: center; font-size: 11px; color: var(--sub);
+  font-weight: 600; padding: 4px 0;
+}
+.cal-cell {
+  aspect-ratio: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  border-radius: 10px; cursor: pointer; position: relative;
+  border: none; background: var(--surface); font-family: inherit;
+  transition: all .12s;
+}
+.cal-cell:hover { background: var(--border); }
+.cal-cell.empty { background: transparent; cursor: default; }
+.cal-cell .cnum { font-size: 14px; font-weight: 600; }
+.cal-cell .pip-row { display: flex; gap: 2px; margin-top: 3px; }
+.cal-cell .pip { width: 5px; height: 5px; border-radius: 50%; }
+.cal-cell.today-cell { background: var(--text); }
+.cal-cell.today-cell .cnum { color: #fff; }
+.cal-cell.today-cell .pip-row { display: none; }
+.cal-cell.sel-cell { background: var(--c0); }
+.cal-cell.sel-cell .cnum { color: #fff; }
+.cal-cell.sel-cell .pip-row { display: none; }
+.cal-cell.past .cnum { color: var(--sub); }
+
+#bottomNav {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 420px;
+  height: var(--nav-h);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-around;
+  z-index: 100;
+}
+.nav-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  border: none; background: none; cursor: pointer; padding: 4px 16px;
+  font-family: inherit;
+}
+.nav-icon { font-size: 22px; }
+.nav-label { font-size: 10px; color: var(--sub); font-weight: 600; }
+.nav-btn.on .nav-label { color: var(--c0); }
+
+#modal {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.45); z-index: 200;
+  align-items: flex-end; justify-content: center;
+}
+#modal.open { display: flex; }
+#modalBox {
+  background: var(--surface); border-radius: 20px 20px 0 0;
+  width: 100%; max-width: 420px; padding: 20px 20px 36px;
+}
+#modalBox h3 { font-size: 17px; font-weight: 700; margin-bottom: 16px; }
+.modal-field { margin-bottom: 12px; }
+.modal-label { font-size: 12px; color: var(--sub); font-weight: 600; margin-bottom: 5px; }
+.modal-input {
+  width: 100%; background: var(--bg); border: none; outline: none;
+  border-radius: 10px; padding: 11px 12px; font-size: 14px;
+  font-family: inherit; color: var(--text);
+}
+.modal-row { display: flex; gap: 8px; }
+.modal-save {
+  width: 100%; padding: 14px; background: var(--text); color: #fff;
+  border: none; border-radius: 12px; font-size: 15px; font-weight: 700;
+  cursor: pointer; margin-top: 8px; font-family: inherit;
+}
+.modal-cancel {
+  width: 100%; padding: 12px; background: var(--bg); color: var(--sub);
+  border: none; border-radius: 12px; font-size: 14px; font-weight: 600;
+  cursor: pointer; margin-top: 6px; font-family: inherit;
+}
+.member-sel { display: flex; gap: 8px; margin-bottom: 14px; }
+.msel-btn {
+  flex: 1; padding: 9px; border-radius: 10px; border: 2px solid var(--border);
+  background: none; font-family: inherit; font-size: 13px; font-weight: 700;
+  cursor: pointer; text-align: center; transition: all .15s;
+}
+.msel-btn.sel-0 { border-color: var(--c0); background: var(--c0bg); color: var(--c0); }
+.msel-btn.sel-1 { border-color: var(--c1); background: var(--c1bg); color: var(--c1); }
+.msel-btn.sel-2 { border-color: var(--c2); background: var(--c2bg); color: var(--c2); }
+
+#toast {
+  position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+  background: #1a1d27; color: #fff; padding: 10px 20px;
+  border-radius: 20px; font-size: 13px; font-weight: 600;
+  opacity: 0; transition: opacity .25s; pointer-events: none; white-space: nowrap;
+  z-index: 300;
+}
+#toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="topbar">
+    <div class="topbar-row">
+      <div>
+        <div id="greeting">家庭行程 🏠</div>
+        <div id="dateLabel"></div>
+      </div>
+      <button class="icon-btn" onclick="openAdd()">＋</button>
+    </div>
+  </div>
+
+  <div id="viewToggle">
+    <button class="vtab on" id="vtab0" onclick="setView('today')">今日</button>
+    <button class="vtab" id="vtab1" onclick="setView('cal')">日历</button>
+  </div>
+
+  <div id="scrollArea">
+    <div id="todayView">
+      <div id="dateStrip"></div>
+      <div id="memberCards"></div>
+    </div>
+    <div id="calView"></div>
+  </div>
+
+  <nav id="bottomNav">
+    <button class="nav-btn on" id="nav0" onclick="setView('today')">
+      <span class="nav-icon">📋</span>
+      <span class="nav-label">今日</span>
+    </button>
+    <button class="nav-btn" id="nav1" onclick="setView('cal')">
+      <span class="nav-icon">📅</span>
+      <span class="nav-label">日历</span>
+    </button>
+    <button class="nav-btn" onclick="openAdd()">
+      <span class="nav-icon">✏️</span>
+      <span class="nav-label">记录</span>
+    </button>
+  </nav>
+</div>
+
+<!-- Modal -->
+<div id="modal" onclick="if(event.target===this)closeModal()">
+  <div id="modalBox">
+    <h3 id="modalTitle">新增行程</h3>
+    <div class="member-sel">
+      <button class="msel-btn" id="msel0" onclick="selectMember(0)">👨<br>爸爸</button>
+      <button class="msel-btn" id="msel1" onclick="selectMember(1)">👩<br>妈妈</button>
+      <button class="msel-btn" id="msel2" onclick="selectMember(2)">🎒<br>小学生</button>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">日期</div>
+      <input class="modal-input" type="date" id="mDate">
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">事项内容</div>
+      <input class="modal-input" type="text" id="mText" placeholder="例：开会、接孩子、上班…">
+    </div>
+    <div class="modal-row">
+      <div class="modal-field" style="flex:1">
+        <div class="modal-label">开始时间</div>
+        <input class="modal-input" type="time" id="mStart">
+      </div>
+      <div class="modal-field" style="flex:1">
+        <div class="modal-label">结束时间</div>
+        <input class="modal-input" type="time" id="mEnd">
+      </div>
+    </div>
+    <button class="modal-save" onclick="saveTask()">储存</button>
+    <button class="modal-cancel" onclick="closeModal()">取消</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const MEMBERS = [
+  { name:'爸爸', emoji:'👨', role:'上班族', color:'var(--c0)', bg:'var(--c0bg)', cls:'0' },
+  { name:'妈妈', emoji:'👩', role:'上班族', color:'var(--c1)', bg:'var(--c1bg)', cls:'1' },
+  { name:'小学生', emoji:'🎒', role:'在读', color:'var(--c2)', bg:'var(--c2bg)', cls:'2' },
+];
+const COLORS = ['#5b6ef5','#e0752a','#2aaa6e'];
+const DOW = ['日','一','二','三','四','五','六'];
+
+let db = {};
+let selectedDate = fmtDate(new Date());
+let modalMember = 0;
+let curView = 'today';
+let editKey = null;
+
+function loadDB() {
+  try { db = JSON.parse(localStorage.getItem('famDB_v3') || '{}'); } catch(e) { db = {}; }
+}
+function saveDB() {
+  try { localStorage.setItem('famDB_v3', JSON.stringify(db)); } catch(e) {}
+}
+function ensureDay(d) {
+  if (!db[d]) db[d] = { 0:[], 1:[], 2:[] };
+  [0,1,2].forEach(i => { if (!db[d][i]) db[d][i] = []; });
+  return db[d];
+}
+function fmtDate(d) {
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+}
+function pad(n) { return n<10?'0'+n:n; }
+function parseDate(s) {
+  const [y,m,d] = s.split('-').map(Number);
+  return new Date(y, m-1, d);
+}
+function todayStr() { return fmtDate(new Date()); }
+function hasData(d) {
+  if (!db[d]) return false;
+  return [0,1,2].some(i => db[d][i] && db[d][i].length > 0);
+}
+
+function init() {
+  loadDB();
+  injectSampleData();
+  setDateLabel();
+  buildDateStrip();
+  renderToday();
+  buildCalendar();
+}
+
+function setDateLabel() {
+  const d = parseDate(selectedDate);
+  const isToday = selectedDate === todayStr();
+  document.getElementById('dateLabel').textContent =
+    (isToday ? '今天 · ' : '') +
+    `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 星期${DOW[d.getDay()]}`;
+}
+
+function buildDateStrip() {
+  const strip = document.getElementById('dateStrip');
+  strip.innerHTML = '';
+  const today = new Date();
+  for (let i = -7; i <= 13; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    const ds = fmtDate(d);
+    const btn = document.createElement('button');
+    btn.className = 'ds-day' +
+      (ds === todayStr() ? ' today' : '') +
+      (ds === selectedDate ? ' selected' : '') +
+      (hasData(ds) ? ' has-data' : '');
+    btn.innerHTML = `<span class="dow">${DOW[d.getDay()]}</span><span class="dom">${d.getDate()}</span><span class="dot"></span>`;
+    btn.addEventListener('click', () => { selectedDate = ds; buildDateStrip(); renderToday(); setDateLabel(); });
+    strip.appendChild(btn);
+  }
+  setTimeout(() => {
+    const s = strip.querySelector('.selected');
+    if (s) s.scrollIntoView({ inline: 'center', block: 'nearest' });
+  }, 50);
+}
+
+function renderToday() {
+  const cards = document.getElementById('memberCards');
+  cards.innerHTML = '';
+  const day = db[selectedDate] || { 0:[], 1:[], 2:[] };
+
+  MEMBERS.forEach((m, mi) => {
+    const tasks = (day[mi] || []);
+    const doneCount = tasks.filter(t => t.done).length;
+    const total = tasks.length;
+    const card = document.createElement('div');
+    card.className = 'member-card';
+    const sorted = [...tasks].map((t,i)=>({...t,_i:i})).sort((a,b)=>(a.start||'').localeCompare(b.start||''));
+
+    let tasksHTML = sorted.length === 0
+      ? `<div class="empty-hint">暂无行程 — 点 ＋ 新增</div>`
+      : sorted.map(t => {
+        const i = t._i;
+        const timeStr = t.start ? (t.end ? `${t.start}–${t.end}` : t.start) : '';
+        return `<div class="task-row">
+          <div class="chk ${t.done?'ticked-'+mi:'done-'+mi}" onclick="toggleTask('${selectedDate}',${mi},${i})">
+            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+              <path d="M1 4l3 3 5-6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="task-body">
+            <div class="task-txt${t.done?' struck':''}">${esc(t.text)}</div>
+            ${timeStr?`<div class="task-time">🕐 ${timeStr}</div>`:''}
+          </div>
+          <button class="del-btn" onclick="deleteTask('${selectedDate}',${mi},${i})">×</button>
+        </div>`;
+      }).join('');
+
+    card.innerHTML = `
+      <div class="mc-header">
+        <div class="mc-avatar" style="background:${m.bg}">${m.emoji}</div>
+        <div>
+          <div class="mc-name">${m.name}</div>
+          <div class="mc-role">${m.role}</div>
+        </div>
+        <div class="mc-done-badge" style="background:${m.bg};color:${m.color}">
+          ${total===0?'无行程':doneCount+'/'+total+' 完成'}
+        </div>
+      </div>
+      <div class="task-list">${tasksHTML}</div>
+      <div class="add-task-row">
+        <input class="add-task-input" placeholder="快速添加…" id="qi_${mi}" onkeydown="quickAdd(event,'${selectedDate}',${mi})">
+        <input class="add-time-inp" placeholder="时间" id="qt_${mi}" onkeydown="quickAdd(event,'${selectedDate}',${mi})">
+        <button class="add-go" onclick="doQuickAdd('${selectedDate}',${mi})">→</button>
+      </div>`;
+    cards.appendChild(card);
+  });
+}
+
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function quickAdd(e, date, mi) {
+  if (e.key === 'Enter') doQuickAdd(date, mi);
+}
+function doQuickAdd(date, mi) {
+  const inp = document.getElementById('qi_'+mi);
+  const tinp = document.getElementById('qt_'+mi);
+  const text = inp.value.trim();
+  if (!text) return;
+  const timeVal = tinp.value.trim();
+  let start = '', end = '';
+  if (timeVal.includes('-')) { [start, end] = timeVal.split('-'); }
+  else { start = timeVal; }
+  ensureDay(date)[mi].push({ text, start, end, done: false });
+  saveDB();
+  inp.value = ''; tinp.value = '';
+  renderToday();
+  buildCalendar();
+  buildDateStrip();
+  toast('已添加 ✓');
+}
+
+function toggleTask(date, mi, ti) {
+  ensureDay(date);
+  db[date][mi][ti].done = !db[date][mi][ti].done;
+  saveDB();
+  renderToday();
+}
+function deleteTask(date, mi, ti) {
+  ensureDay(date);
+  db[date][mi].splice(ti, 1);
+  saveDB();
+  renderToday();
+  buildCalendar();
+  buildDateStrip();
+}
+
+function buildCalendar() {
+  const cal = document.getElementById('calView');
+  cal.innerHTML = '';
+  const today = new Date();
+  for (let mo = -1; mo <= 2; mo++) {
+    const ref = new Date(today.getFullYear(), today.getMonth() + mo, 1);
+    cal.appendChild(buildMonth(ref, today));
+  }
+}
+
+function buildMonth(ref, today) {
+  const y = ref.getFullYear();
+  const m = ref.getMonth();
+  const firstDow = new Date(y, m, 1).getDay();
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  const block = document.createElement('div');
+  block.className = 'month-block';
+
+  const totalTasks = (() => {
+    let n = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const ds = `${y}-${pad(m+1)}-${pad(d)}`;
+      if (db[ds]) [0,1,2].forEach(i => { n += (db[ds][i]||[]).length; });
+    }
+    return n;
+  })();
+
+  block.innerHTML = `<div class="month-title">${y}年${m+1}月 <span>${totalTasks ? totalTasks+'项行程' : '暂无行程'}</span></div>`;
+  const grid = document.createElement('div');
+  grid.className = 'cal-grid';
+  ['日','一','二','三','四','五','六'].forEach(d => {
+    const h = document.createElement('div'); h.className = 'cal-dow'; h.textContent = d; grid.appendChild(h);
+  });
+  for (let i = 0; i < firstDow; i++) {
+    const c = document.createElement('button'); c.className = 'cal-cell empty'; grid.appendChild(c);
+  }
+  const todayStr2 = fmtDate(today);
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = `${y}-${pad(m+1)}-${pad(d)}`;
+    const past = ds < todayStr2;
+    const isToday = ds === todayStr2;
+    const isSel = ds === selectedDate;
+    const cell = document.createElement('button');
+    cell.className = 'cal-cell' + (isToday?' today-cell':'') + (isSel&&!isToday?' sel-cell':'') + (past&&!isToday?' past':'');
+    cell.innerHTML = `<span class="cnum">${d}</span>`;
+    const day = db[ds];
+    if (day && !isToday && !isSel) {
+      const pips = [0,1,2].filter(i => (day[i]||[]).length > 0)
+        .map(i => `<div class="pip" style="background:${COLORS[i]}"></div>`).join('');
+      if (pips) cell.innerHTML += `<div class="pip-row">${pips}</div>`;
+    }
+    cell.addEventListener('click', () => {
+      selectedDate = ds;
+      setDateLabel();
+      buildCalendar();
+      buildDateStrip();
+      renderToday();
+      setView('today');
+    });
+    grid.appendChild(cell);
+  }
+  block.appendChild(grid);
+  return block;
+}
+
+function setView(v) {
+  curView = v;
+  document.getElementById('todayView').classList.toggle('off', v !== 'today');
+  document.getElementById('calView').classList.toggle('on', v === 'cal');
+  document.getElementById('vtab0').classList.toggle('on', v === 'today');
+  document.getElementById('vtab1').classList.toggle('on', v === 'cal');
+  document.getElementById('nav0').classList.toggle('on', v === 'today');
+  document.getElementById('nav1').classList.toggle('on', v === 'cal');
+}
+
+function openAdd(date, mi) {
+  editKey = null;
+  modalMember = mi !== undefined ? mi : 0;
+  selectMember(modalMember);
+  document.getElementById('mDate').value = date || selectedDate;
+  document.getElementById('mText').value = '';
+  document.getElementById('mStart').value = '';
+  document.getElementById('mEnd').value = '';
+  document.getElementById('modalTitle').textContent = '新增行程';
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+function selectMember(mi) {
+  modalMember = mi;
+  [0,1,2].forEach(i => {
+    const btn = document.getElementById('msel'+i);
+    btn.className = 'msel-btn' + (i===mi?' sel-'+i:'');
+  });
+}
+
+function saveTask() {
+  const date = document.getElementById('mDate').value;
+  const text = document.getElementById('mText').value.trim();
+  if (!date || !text) { toast('请填写日期和内容'); return; }
+  const start = document.getElementById('mStart').value;
+  const end = document.getElementById('mEnd').value;
+  ensureDay(date)[modalMember].push({ text, start, end, done: false });
+  saveDB();
+  closeModal();
+  if (date === selectedDate) renderToday();
+  buildCalendar();
+  buildDateStrip();
+  toast('已储存 ✓');
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+function injectSampleData() {
+  if (localStorage.getItem('famDB_sample')) return;
+  const t = todayStr();
+  const tom = fmtDate(new Date(new Date().getTime() + 86400000));
+  const yest = fmtDate(new Date(new Date().getTime() - 86400000));
+  ensureDay(t)[0] = [
+    { text:'晨会', start:'09:00', end:'09:30', done:false },
+    { text:'提交月报', start:'14:00', end:'', done:false },
+    { text:'接孩子放学', start:'17:30', end:'', done:false },
+  ];
+  ensureDay(t)[1] = [
+    { text:'上班打卡', start:'10:00', end:'', done:true },
+    { text:'午休', start:'13:00', end:'14:00', done:false },
+    { text:'超市买菜', start:'18:00', end:'', done:false },
+  ];
+  ensureDay(t)[2] = [
+    { text:'语文作业', start:'', end:'', done:false },
+    { text:'数学练习', start:'', end:'', done:false },
+    { text:'钢琴练习', start:'17:00', end:'17:30', done:false },
+  ];
+  ensureDay(tom)[0] = [{ text:'团队培训', start:'10:00', end:'12:00', done:false }];
+  ensureDay(tom)[2] = [{ text:'美劳课带材料', start:'', end:'', done:false }];
+  ensureDay(yest)[0] = [{ text:'客户拜访', start:'15:00', end:'17:00', done:true }];
+  saveDB();
+  localStorage.setItem('famDB_sample','1');
+}
+
+init();
+</script>
+</body>
+</html>
